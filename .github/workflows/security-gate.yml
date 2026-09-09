@@ -1,0 +1,32 @@
+name: Security Gate
+
+on:
+  workflow_run:
+    workflows:
+      - "Semgrep Security Scan"
+      - "Gitleaks Secret Scan"
+      - "Trivy Dependency Scan"
+      - "Trivy Docker Image Scan"
+      - "Checkov IaC Security Scan"
+    types:
+      - completed
+
+jobs:
+  security-gate:
+    name: Security Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check security scan status
+        run: |
+          echo "Security scan completed."
+          echo "Workflow: ${{ github.event.workflow_run.name }}"
+          echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "❌ Security Gate BLOCKED"
+            echo "A security scan has failed."
+            exit 1
+          fi
+
+          echo "✅ Security Gate PASSED"
