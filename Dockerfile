@@ -4,11 +4,8 @@ WORKDIR /app
 
 COPY app/requirements.txt .
 
-RUN python -m pip install --no-cache-dir --upgrade \
-    pip \
-    setuptools==84.0.0 \
-    wheel==0.48.0 \
-    && python -m pip install --no-cache-dir Flask==3.1.1
+RUN python -m pip install --no-cache-dir -r requirements.txt && \
+    python -m pip uninstall -y setuptools wheel
 
 COPY app/ .
 
