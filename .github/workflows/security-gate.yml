@@ -11,22 +11,71 @@ on:
     types:
       - completed
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   security-gate:
     name: Security Gate
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check security scan status
+      - name: Check all security scans
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          echo "Security scan completed."
-          echo "Workflow: ${{ github.event.workflow_run.name }}"
-          echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "======================================"
+          echo "        SECURITY GATE"
+          echo "======================================"
+          echo "Commit: $HEAD_SHA"
+          echo ""
 
-          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-            echo "❌ Security Gate BLOCKED"
-            echo "A security scan has failed."
+          workflows=(
+            "Semgrep Security Scan"
+            "Gitleaks Secret Scan"
+            "Trivy Dependency Scan"
+            "Trivy Docker Image Scan"
+            "Checkov IaC Security Scan"
+          )
+
+          gate_failed=false
+
+          for workflow in "${workflows[@]}"; do
+            echo "Checking: $workflow"
+
+            conclusion=$(gh run list \
+              --repo "$REPO" \
+              --workflow "$workflow" \
+              --limit 20 \
+              --json headSha,status,conclusion \
+              --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .conclusion" \
+              | head -n 1)
+
+            if [ -z "$conclusion" ]; then
+              echo "⚠️ $workflow: NOT FOUND"
+              gate_failed=true
+            elif [ "$conclusion" = "success" ]; then
+              echo "✅ $workflow: PASSED"
+            else
+              echo "❌ $workflow: $conclusion"
+              gate_failed=true
+            fi
+
+            echo ""
+          done
+
+          echo "======================================"
+
+          if [ "$gate_failed" = true ]; then
+            echo "❌ SECURITY GATE BLOCKED"
+            echo "One or more security scans failed or were not found."
+            echo "Deployment must not proceed."
             exit 1
           fi
 
-          echo "✅ Security Gate PASSED"
+          echo "✅ SECURITY GATE PASSED"
+          echo "All required security scans passed."
+          echo "Deployment may proceed."
