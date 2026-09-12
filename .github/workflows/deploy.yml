@@ -13,10 +13,32 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify Security Gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
-          echo "Security Gate verification"
-          echo "All required security scans must pass before deployment."
-          echo "Security Gate status: PASSED"
+          echo "======================================"
+          echo "      VERIFYING SECURITY GATE"
+          echo "======================================"
+
+          conclusion=$(gh run list \
+            --repo "$REPO" \
+            --workflow "Security Gate" \
+            --limit 20 \
+            --json headSha,conclusion \
+            --jq '.[] | select(.headSha == "${{ github.sha }}") | .conclusion' \
+            | head -n 1)
+
+          echo "Security Gate result: $conclusion"
+
+          if [ "$conclusion" != "success" ]; then
+            echo "❌ SECURITY GATE FAILED"
+            echo "🚫 DEPLOYMENT BLOCKED"
+            exit 1
+          fi
+
+          echo "✅ SECURITY GATE PASSED"
+          echo "Deployment may proceed."
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.2
@@ -26,11 +48,28 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/secure-cicd-pipeline
+
+            echo "======================================"
+            echo "        UPDATING APPLICATION"
+            echo "======================================"
+
             git pull origin main
+
+            echo "Stopping old container..."
             docker stop secure-cicd-container || true
+
+            echo "Removing old container..."
             docker rm secure-cicd-container || true
+
+            echo "Building new Docker image..."
             docker build -t secure-cicd-app .
+
+            echo "Starting new container..."
             docker run -d -p 5000:5000 --name secure-cicd-container secure-cicd-app
+
+            echo "======================================"
+            echo "       APPLICATION DEPLOYED"
+            echo "======================================"
 
       - name: Deployment Complete
         run: |
