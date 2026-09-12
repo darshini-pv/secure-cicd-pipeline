@@ -17,3 +17,5 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
 # DEMO VULNERABILITY - remove after demonstration
 DEMO_PASSWORD = "SuperSecretPassword123!"
+# DEMO VULNERABILITY - remove after demonstration
+result = eval("2 + 2")
