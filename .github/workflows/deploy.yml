@@ -5,7 +5,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy Application
+    name: Deploy to AWS EC2
     runs-on: ubuntu-latest
 
     steps:
@@ -18,15 +18,23 @@ jobs:
           echo "All required security scans must pass before deployment."
           echo "Security Gate status: PASSED"
 
-      - name: Build Docker Image
-        run: |
-          docker build -t secure-cicd-app .
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/secure-cicd-pipeline
+            git pull origin main
+            docker stop secure-cicd-container || true
+            docker rm secure-cicd-container || true
+            docker build -t secure-cicd-app .
+            docker run -d -p 5000:5000 --name secure-cicd-container secure-cicd-app
 
-      - name: Deployment Ready
+      - name: Deployment Complete
         run: |
           echo "======================================"
           echo "       DEPLOYMENT SUCCESSFUL"
           echo "======================================"
-          echo "Docker image built successfully."
-          echo "Security checks passed."
-          echo "Application is ready for deployment."
+          echo "Application deployed to AWS EC2."
