@@ -15,10 +15,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Run Checkov
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@a8664e3a0549367977f0cda990a34311835c87c0
         with:
           directory: terraform
           framework: terraform
